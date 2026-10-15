@@ -1,11 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CST2335 Lab 4</string>
+    <string name="app_name">CST2335 Lab 5</string>
     <string name="type_here">Tapez ici</string>
     <string name="urgent">Urgent</string>
-    <string name="add">Ajouter</string>
-    <string name="dialog_title">Voulez-vous supprimer ceci?</string>
-    <string name="dialog_message">La ligne sélectionnée est: %1$d</string>
-    <string name="dialog_positive">Oui</string>
-    <string name="dialog_negative">Non</string>
+    <string name="add">AJOUTER</string>
+    <string name="delete_title">Supprimer l\'élément</string>
+    <string name="delete_message">Voulez-vous supprimer cette tâche ?</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
 </resources>
