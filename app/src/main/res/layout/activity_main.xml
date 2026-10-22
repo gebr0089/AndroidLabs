@@ -1,46 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#000000">
 
-    <LinearLayout
-        android:id="@+id/bottomControls"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="8dp">
-
-        <EditText
-            android:id="@+id/editTextTodo"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="@string/type_here"
-            android:inputType="text" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/switchUrgent"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:text="@string/urgent" />
-
-        <Button
-            android:id="@+id/btnAdd"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/add" />
-    </LinearLayout>
-
-    <ListView
-        android:id="@+id/listViewTodo"
+    <ImageView
+        android:id="@+id/catImageView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/bottomControls"
-        android:divider="#D3D3D3"
-        android:dividerHeight="1dp" />
+        android:layout_centerInParent="true"
+        android:scaleType="fitCenter" />
+
+    <ProgressBar
+        android:id="@+id/catProgressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="12dp"
+        android:layout_alignParentBottom="true"
+        android:max="100"
+        android:progress="0" />
 
 </RelativeLayout>

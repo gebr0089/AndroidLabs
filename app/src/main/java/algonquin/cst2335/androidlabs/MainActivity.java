@@ -1,173 +1,133 @@
 package algonquin.cst2335.androidlabs;
 
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.content.ContentValues;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Color;
+import android.app.Activity;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.BaseAdapter;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ListView;
-import androidx.appcompat.widget.SwitchCompat;
-import android.widget.TextView;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
 
-import java.util.ArrayList;
+import org.json.JSONObject;
 
-public class MainActivity extends AppCompatActivity {
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
-    private ArrayList<TodoItem> todoList = new ArrayList<>();
-    private MyListAdapter myAdapter;
-    private SQLiteDatabase db;
+public class MainActivity extends Activity {
+
+    private static final String TAG = "CatSlideshow";
+    private ImageView catImageView;
+    private ProgressBar catProgressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize SQLite Database
-        MyOpener dbOpener = new MyOpener(this);
-        db = dbOpener.getWritableDatabase();
+        catImageView = findViewById(R.id.catImageView);
+        catProgressBar = findViewById(R.id.catProgressBar);
 
-        // 2. Query all rows and print cursor information to Logcat
-        Cursor cursor = db.query(false, MyOpener.TABLE_NAME, null, null, null, null, null, null, null);
-        printCursor(cursor);
-
-        // 3. Load existing saved todos into the list
-        if (cursor != null) {
-            int idColIdx = cursor.getColumnIndex(MyOpener.COL_ID);
-            int todoColIdx = cursor.getColumnIndex(MyOpener.COL_TODO);
-            int urgentColIdx = cursor.getColumnIndex(MyOpener.COL_IS_URGENT);
-
-            while (cursor.moveToNext()) {
-                long id = cursor.getLong(idColIdx);
-                String text = cursor.getString(todoColIdx);
-                boolean isUrgent = cursor.getInt(urgentColIdx) == 1;
-                todoList.add(new TodoItem(id, text, isUrgent));
-            }
-            cursor.close();
-        }
-
-        // 4. UI Views
-        ListView listView = findViewById(R.id.listViewTodo);
-        EditText editText = findViewById(R.id.editTextTodo);
-        SwitchCompat urgentSwitch = findViewById(R.id.switchUrgent);
-        Button addButton = findViewById(R.id.btnAdd);
-
-        myAdapter = new MyListAdapter();
-        listView.setAdapter(myAdapter);
-
-        // 5. Add button: Insert into SQLite and refresh list
-        addButton.setOnClickListener(v -> {
-            String text = editText.getText().toString().trim();
-            if (!text.isEmpty()) {
-                boolean isUrgent = urgentSwitch.isChecked();
-
-                ContentValues cValues = new ContentValues();
-                cValues.put(MyOpener.COL_TODO, text);
-                cValues.put(MyOpener.COL_IS_URGENT, isUrgent ? 1 : 0);
-
-                long newId = db.insert(MyOpener.TABLE_NAME, null, cValues);
-
-                todoList.add(new TodoItem(newId, text, isUrgent));
-                myAdapter.notifyDataSetChanged();
-
-                editText.setText("");
-                urgentSwitch.setChecked(false);
-            }
-        });
-
-        // 6. Long click: Confirm deletion and remove from SQLite & list
-        listView.setOnItemLongClickListener((parent, view, position, id) -> {
-            TodoItem itemToRemove = todoList.get(position);
-
-            new AlertDialog.Builder(MainActivity.this)
-                    .setTitle(R.string.delete_title)
-                    .setMessage(R.string.delete_message)
-                    .setPositiveButton(R.string.yes, (dialog, which) -> {
-                        db.delete(MyOpener.TABLE_NAME, MyOpener.COL_ID + " = ?", new String[]{String.valueOf(itemToRemove.getId())});
-                        todoList.remove(position);
-                        myAdapter.notifyDataSetChanged();
-                    })
-                    .setNegativeButton(R.string.no, null)
-                    .show();
-
-            return true;
-        });
+        // Start background image fetcher task
+        CatImages task = new CatImages();
+        task.execute();
     }
 
-    private void printCursor(Cursor c) {
-        String TAG = "Lab5_Cursor";
+    private class CatImages extends AsyncTask<String, Integer, String> {
+        private Bitmap currentCatBitmap = null;
+        private boolean isNewImageReady = false;
 
-        Log.i(TAG, "Database Version: " + db.getVersion());
+        @Override
+        protected String doInBackground(String... strings) {
+            while (true) {
+                try {
+                    // 1. Query random cat JSON
+                    URL apiUrl = new URL("https://cataas.com/cat?json=true");
+                    HttpURLConnection connection = (HttpURLConnection) apiUrl.openConnection();
+                    connection.setConnectTimeout(8000);
+                    connection.setReadTimeout(8000);
 
-        if (c == null) return;
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    StringBuilder jsonBuilder = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        jsonBuilder.append(line);
+                    }
+                    reader.close();
 
-        int colCount = c.getColumnCount();
-        Log.i(TAG, "Number of columns: " + colCount);
+                    JSONObject jsonResponse = new JSONObject(jsonBuilder.toString());
+                    String imageId = jsonResponse.optString("_id", jsonResponse.optString("id", "cat_" + System.currentTimeMillis()));
+                    String relativeUrl = jsonResponse.optString("url", "/cat/" + imageId);
+                    String fullImageUrl = relativeUrl.startsWith("http") ? relativeUrl : "https://cataas.com" + relativeUrl;
 
-        String[] colNames = c.getColumnNames();
-        StringBuilder namesStr = new StringBuilder("Columns: ");
-        for (String col : colNames) {
-            namesStr.append(col).append(" | ");
-        }
-        Log.i(TAG, namesStr.toString());
+                    String localFileName = imageId + ".png";
+                    File localFile = new File(getFilesDir(), localFileName);
 
-        Log.i(TAG, "Row count: " + c.getCount());
+                    // 2. Check if image file exists locally
+                    if (localFile.exists() && localFile.length() > 0) {
+                        Log.i(TAG, "Cache Hit: Loading local image: " + localFileName);
+                        FileInputStream fis = openFileInput(localFileName);
+                        currentCatBitmap = BitmapFactory.decodeStream(fis);
+                        fis.close();
+                    } else {
+                        Log.i(TAG, "Cache Miss: Downloading new image from " + fullImageUrl);
+                        URL imageUrl = new URL(fullImageUrl);
+                        HttpURLConnection imgConn = (HttpURLConnection) imageUrl.openConnection();
+                        imgConn.setDoInput(true);
+                        imgConn.connect();
 
-        c.moveToPosition(-1);
-        while (c.moveToNext()) {
-            StringBuilder rowStr = new StringBuilder("Row: ");
-            for (int i = 0; i < colCount; i++) {
-                rowStr.append(colNames[i]).append(" = ").append(c.getString(i)).append(" ; ");
+                        InputStream input = imgConn.getInputStream();
+                        currentCatBitmap = BitmapFactory.decodeStream(input);
+                        input.close();
+
+                        // Save image to internal storage
+                        if (currentCatBitmap != null) {
+                            FileOutputStream fos = openFileOutput(localFileName, Context.MODE_PRIVATE);
+                            currentCatBitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                            fos.flush();
+                            fos.close();
+                            Log.i(TAG, "Saved image to storage as: " + localFileName);
+                        }
+                    }
+
+                    // Signal UI that a new image is ready
+                    isNewImageReady = true;
+                    publishProgress(0);
+
+                    // 3. Update progress bar countdown
+                    for (int i = 0; i <= 100; i++) {
+                        publishProgress(i);
+                        Thread.sleep(35);
+                    }
+
+                } catch (Exception e) {
+                    Log.e(TAG, "Error: " + e.getMessage(), e);
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ignored) {}
+                }
             }
-            Log.i(TAG, rowStr.toString());
-        }
-    }
-
-    private class MyListAdapter extends BaseAdapter {
-        @Override
-        public int getCount() {
-            return todoList.size();
         }
 
         @Override
-        public Object getItem(int position) {
-            return todoList.get(position);
-        }
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
 
-        @Override
-        public long getItemId(int position) {
-            return todoList.get(position).getId();
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View view = convertView;
-            if (view == null) {
-                view = getLayoutInflater().inflate(R.layout.row_todo, parent, false);
+            if (isNewImageReady && currentCatBitmap != null) {
+                catImageView.setImageBitmap(currentCatBitmap);
+                isNewImageReady = false;
             }
 
-            TextView textView = view.findViewById(R.id.todo_text);
-            TodoItem item = (TodoItem) getItem(position);
-            textView.setText(item.getText());
-
-            if (item.isUrgent()) {
-                textView.setBackgroundColor(Color.RED);
-                textView.setTextColor(Color.WHITE);
-            } else {
-                textView.setBackgroundColor(Color.WHITE);
-                textView.setTextColor(Color.BLACK);
+            if (values.length > 0) {
+                catProgressBar.setProgress(values[0]);
             }
-
-            return view;
         }
     }
 }
